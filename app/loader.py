@@ -3,6 +3,8 @@ from notifiers.logging import NotificationHandler
 from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
+# --- НОВЫЙ ИМПОРТ ---
+from aiogram.client.default import DefaultBotProperties 
 
 import config
 
@@ -27,5 +29,12 @@ logger.add(
 )
 
 storage = MemoryStorage()
-bot = Bot(token=config.BOT_TOKEN, parse_mode=ParseMode.HTML)
+
+# --- ИСПРАВЛЕННОЕ СОЗДАНИЕ БОТА ---
+# В новых версиях aiogram настройки (типа parse_mode) передаются через DefaultBotProperties
+bot = Bot(
+    token=config.BOT_TOKEN, 
+    default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+)
+
 dp = Dispatcher(storage=storage)

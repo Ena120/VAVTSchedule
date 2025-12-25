@@ -8,7 +8,7 @@ from app.database.engine import async_main
 # Импортируем наши сервисы
 from app.services.pdf_converter import convert_pdf_to_xlsx
 from app.services.schedule_parser import parse_schedule
-from app.database.requests import save_schedule_to_db
+from app.database.requests import save_schedule_to_db, clear_schedule_table
 
 # Настройка логов
 logging.basicConfig(level=logging.INFO)
@@ -21,6 +21,9 @@ async def process_all_files():
     """
     print("🛠 Создаю таблицы в БД (если их нет)...")
     await async_main()
+
+    # ОЧИСТКА ПЕРЕД ЗАГРУЗКОЙ
+    await clear_schedule_table()
     
     print("🚀 Начинаю обработку файлов из папки downloads...")
 
