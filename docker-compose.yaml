@@ -4,57 +4,43 @@ services:
   db:
     image: postgres:16.1
     container_name: PostgreSQL
-    restart: on-failure
+    restart: always
     environment:
-      POSTGRES_DB: mmu
+      # Важно: имя базы должно совпадать с тем, что в конце PG_URL в файле .env
+      POSTGRES_DB: postgres 
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_USER: ${POSTGRES_USER}
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     networks:
       - default
 
+  # pgadmin нам пока не нужен (лишняя настройка), я его закомментировал
+  # pgadmin:
+  #   container_name: pgAdmin
+  #   image: dpage/pgadmin4
+  #   environment:
+  #     PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+  #     PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+  #   volumes:
+  #     - pgadmin:/var/lib/pgadmin
+  #   ports:
+  #     - "5050:80"
+  #   depends_on:
+  #     - db
+  #   networks:
+  #     - default
 
-  pgadmin:
-    container_name: pgAdmin
-    image: dpage/pgadmin4
-    environment:
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
-    volumes:
-      - pgadmin:/var/lib/pgadmin
-    ports:
-      - "5050:80"
-    depends_on:
-      - db
-    networks:
-      - default
-
-  bot:
-    build: .
-    container_name: Bot
-    command: sh -c "python app"
-    environment:
-      BOT_TOKEN: ${BOT_TOKEN}
-      PG_URL: ${PG_URL}
-    restart: always
-    ports:
-      - "8080:8080"
-    depends_on:
-      - db
-    networks:
-      - default
-
+  # Бота мы тоже убрали отсюда, потому что ты будешь запускать его вручную в Cursor
+  # bot:
+  #   ...
 
 networks:
   default:
     driver: bridge
-    driver_opts:
-      com.docker.network.driver.mtu: 1450
-
 
 volumes:
   pgdata:
-  pgadmin:
+  # pgadmin:

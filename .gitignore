@@ -159,3 +159,13 @@ eggs
 logs
 schedule.db
 .DS_Store
+
+# API ключи Adobe
+pdfservices-api-credentials.json
+
+# Тестовые файлы с данными
+*.pdf
+*.xlsx
+
+# Временные скрипты (если не нужны в репозитории)
+test_manual.py

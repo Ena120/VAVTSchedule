@@ -1,27 +1,24 @@
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-from sqlalchemy.orm import declarative_base
-# * import key for postgresql
-from config import DB_LINK
+import os
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.orm import DeclarativeBase
+from dotenv import load_dotenv
 
-# * connecting to postgresql
-engine = create_async_engine(DB_LINK, echo=False, pool_pre_ping=False, future=True)
-# * open session
-session = async_sessionmaker(engine, expire_on_commit=False)
-# * declare tables
-Base = declarative_base()
+# 1. Загружаем переменные из файла .env
+load_dotenv()
 
-# * testing requests to database
-if __name__ == "__main__":
-    import asyncio
-    from database.crud.teacher import get_teachers_name
+# 2. Получаем ссылку на базу
+# (Убедись, что в .env файле переменная называется PG_URL)
+database_url = os.getenv("PG_URL")
 
-    async def smth():
-        list_of_teachers = await get_teachers_name()
-        text = ""
-        number = 1
-        for name in list_of_teachers:
-            text += f"{number}. {name[0]}\n"
-            number += 1
-        text += "<i>\n\nИспользуй функцию поиска в чате для быстрого нахождения имени</i>"
-        print(text)
-    asyncio.run(smth())
+if not database_url:
+    raise ValueError("❌ ОШИБКА: Не найдена переменная PG_URL в файле .env")
+
+# 3. Создаем асинхронный движок
+engine = create_async_engine(url=database_url, echo=False)
+
+# 4. Создаем фабрику сессий (через неё мы будем делать запросы)
+async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+# 5. Базовый класс для моделей (User, Group, Lesson наследуются от него)
+class Base(DeclarativeBase):
+    pass

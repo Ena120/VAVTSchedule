@@ -1,1 +1,1 @@
-from database import models
+from . import models
