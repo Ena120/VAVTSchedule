@@ -1,106 +1,86 @@
-import json
 import openpyxl
 import re
 
-def get_merged_value(sheet, row, col):
-    """
-    Проверяет, входит ли ячейка в объединенный диапазон,
-    и возвращает значение из главной (левой верхней) ячейки.
-    """
-    cell = sheet.cell(row, col)
-    for merged_range in sheet.merged_cells.ranges:
-        if cell.coordinate in merged_range:
-            return sheet.cell(merged_range.min_row, merged_range.min_col).value
-    return cell.value
-
 def parse_schedule(file_path):
     """
-    Парсит XLSX файл расписания и возвращает список словарей (JSON).
+    Парсит локально созданный Excel файл.
+    Учитывает, что pdfplumber не объединяет ячейки, а оставляет их пустыми.
     """
-    wb = openpyxl.load_workbook(file_path, data_only=True) # data_only=True важно, чтобы читать значения, а не формулы
+    wb = openpyxl.load_workbook(file_path, data_only=True)
     sheet = wb.active
     
     schedule_data = []
     
-    # --- 1. Находим строку с заголовками (группами) ---
+    # --- 1. Поиск шапки с группами ---
     header_row_index = -1
-    group_columns = {} # {индекс_колонки: "название_группы"}
+    group_columns = {} # {индекс_колонки: "Название группы"}
     
-    # Регулярное выражение для групп ВАВТ (Например: Б24М-..., Б22..., М23...)
-    # Ищет строку, начинающуюся на букву, потом цифры, потом дефис
+    # Ищем код группы (например Б25Ф..., М23...)
     group_pattern = re.compile(r'^[А-ЯA-Z]\d{2}.*') 
 
-    for row_num in range(1, 20): # Ищем в первых 20 строках
-        row_values = []
-        for c in range(1, 30):
-            val = sheet.cell(row=row_num, column=c).value
-            if val:
-                row_values.append(str(val).strip())
-        
-        # Считаем, сколько ячеек в этой строке похожи на группы
-        # Если нашли хотя бы 2 ячейки, похожие на группы - это шапка
-        matches = sum(1 for v in row_values if group_pattern.match(v))
-        
-        if matches >= 1: # Достаточно даже 1 группы, чтобы понять, что это шапка
-            header_row_index = row_num
-            print(f"🔎 Нашел строку с группами: №{row_num}")
+    for row_num in range(1, 20):
+        for col_num in range(1, sheet.max_column + 1):
+            val = sheet.cell(row=row_num, column=col_num).value
+            if val and isinstance(val, str):
+                # Чистим от переносов строк
+                val = val.replace('\n', '')
+                if group_pattern.match(val.strip()):
+                    header_row_index = row_num
+                    # Собираем все группы в этой строке
+                    # Пробегаем по всей строке еще раз
+                    for c in range(1, sheet.max_column + 1):
+                        g_val = sheet.cell(row=row_num, column=c).value
+                        if g_val and isinstance(g_val, str) and len(g_val) > 3:
+                             group_columns[c] = g_val.strip().replace('\n', '')
+                    break
+        if header_row_index != -1:
             break
             
     if header_row_index == -1:
-        # Если не нашли по маске, попробуем поискать просто слово "группа" в строке выше
-        # Но для начала выбросим ошибку, чтобы ты видел
-        raise ValueError("Не могу найти строку с названиями групп (искал коды вида Б24..., Б22...).")
-        
-    # Заполняем словарь групп из найденной строки
-    for col_num in range(1, sheet.max_column + 1):
-        cell_value = sheet.cell(row=header_row_index, column=col_num).value
-        # Берем ячейку, если она похожа на группу
-        if cell_value and isinstance(cell_value, str) and group_pattern.match(cell_value.strip()):
-            group_columns[col_num] = cell_value.strip()
+        print(f"⚠️ Не нашел строку с группами в файле {file_path}")
+        return []
 
     print(f"🎓 Найдены группы: {list(group_columns.values())}")
 
-    # --- 2. Проходим по строкам и собираем данные ---
-    current_day = None
+    # --- 2. Чтение данных ---
+    current_day = None # Здесь будем хранить "Текущий день" (Пн29.12), пока не встретим новый
     
-    # Начинаем со следующей строки после шапки
     for row_num in range(header_row_index + 1, sheet.max_row + 1):
+        # Колонка A (1) - День недели
+        day_cell = sheet.cell(row=row_num, column=1).value
         
-        # --- А. Ищем ДЕНЬ НЕДЕЛИ (обычно 1 колонка) ---
-        day_val = get_merged_value(sheet, row_num, 1) 
-        if day_val and isinstance(day_val, str) and len(day_val) > 2:
-            # Очистка мусора (иногда там "Пн 22.12")
-            current_day = day_val.replace('\n', ' ').strip()
-
-        # --- Б. Ищем ВРЕМЯ (обычно 2 колонка) ---
-        time_val = get_merged_value(sheet, row_num, 2)
+        # Если в ячейке дня что-то написано, обновляем "текущий день"
+        if day_cell and str(day_cell).strip():
+            current_day = str(day_cell).strip().replace('\n', ' ')
         
-        # Если времени нет, это может быть пустая строка или разделитель -> пропускаем
-        if not time_val:
-            continue
-            
-        # Нормализация времени (убираем лишнее)
-        time_str = str(time_val).replace('\n', '').strip()
-        # Проверка: если в "времени" слишком много букв, это не время (бывает заголовок дня)
-        if len(time_str) > 20: 
+        # Если дня еще нет (начало файла мусорное) - пропускаем
+        if not current_day:
             continue
 
-        # --- В. Проходим по колонкам ГРУПП ---
+        # Колонка B (2) - Время
+        time_cell = sheet.cell(row=row_num, column=2).value
+        if not time_cell:
+            continue # Если нет времени, значит строка пустая или мусорная
+        
+        time_str = str(time_cell).strip().replace('\n', '')
+        
+        # Фильтр: Время должно содержать цифры (защита от лишних заголовков)
+        if not any(char.isdigit() for char in time_str):
+            continue
+
+        # --- 3. Проход по колонкам групп ---
         for col_idx, group_name in group_columns.items():
-            subject_raw = get_merged_value(sheet, row_num, col_idx)
+            subject_val = sheet.cell(row=row_num, column=col_idx).value
             
-            # Если в ячейке что-то есть
-            if subject_raw and isinstance(subject_raw, str):
-                cleaned_text = subject_raw.replace('\n', ' ').strip()
+            # Если ячейка с предметом НЕ пустая - сохраняем
+            if subject_val and str(subject_val).strip():
+                subject_text = str(subject_val).strip().replace('\n', ' ')
                 
-                if len(cleaned_text) < 3: # Игнорируем мусор типа "." или "-"
-                    continue
-                    
                 schedule_data.append({
                     "day": current_day,
                     "time": time_str,
                     "group": group_name,
-                    "subject_raw": cleaned_text
+                    "subject_raw": subject_text
                 })
-                
+
     return schedule_data

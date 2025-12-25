@@ -1,24 +1,29 @@
 import os
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 from dotenv import load_dotenv
 
-# 1. Загружаем переменные из файла .env
+# Загружаем переменные окружения
 load_dotenv()
 
-# 2. Получаем ссылку на базу
-# (Убедись, что в .env файле переменная называется PG_URL)
-database_url = os.getenv("PG_URL")
+# ИСПРАВЛЕНО: теперь ищем PG_URL, как у тебя в .env
+db_url = os.getenv("PG_URL")
 
-if not database_url:
-    raise ValueError("❌ ОШИБКА: Не найдена переменная PG_URL в файле .env")
+if not db_url:
+    print("⚠️ ОШИБКА: Не найдена переменная PG_URL в файле .env")
 
-# 3. Создаем асинхронный движок
-engine = create_async_engine(url=database_url, echo=False)
+# Создаем движок
+engine = create_async_engine(db_url, echo=False)
 
-# 4. Создаем фабрику сессий (через неё мы будем делать запросы)
-async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+# Создаем фабрику сессий
+async_session = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 
-# 5. Базовый класс для моделей (User, Group, Lesson наследуются от него)
+# Базовый класс для моделей
 class Base(DeclarativeBase):
     pass
+
+# Функция создания таблиц
+async def async_main():
+    """Создает все таблицы в базе данных (если их нет)"""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
