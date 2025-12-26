@@ -22,6 +22,7 @@ class Group(Base):
     group_id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(unique=True) # Важно: название группы уникально
     course: Mapped[str] = mapped_column(nullable=True)
+    faculty: Mapped[str] = mapped_column(nullable=True)
 
 
 class Teacher(Base):

@@ -12,7 +12,7 @@ from keyboard.inline.menu.inline_menu import main_menu
 # * import inline siting menu keyboard
 from keyboard.inline.siting.inline_siting import siting_menu
 # * import requests to database
-from database import crud
+from app.database import crud
 
 router = Router()
 

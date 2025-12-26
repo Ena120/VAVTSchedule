@@ -7,7 +7,7 @@ from aiogram.filters import Command
 from loguru import logger
 
 # * import requests to database
-from database import crud
+from app.database import crud
 # * import admin id
 from config import ADMIN
 # * import callback

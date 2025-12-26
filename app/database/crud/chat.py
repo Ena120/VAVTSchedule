@@ -1,5 +1,5 @@
-# from database.engine import session
-# from database.models import Squad, Group
+# from app.database.engine import session
+# from app.database.models import Squad, Group
 #
 #
 # def verify_chat(chat_id: int):

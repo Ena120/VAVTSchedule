@@ -8,7 +8,7 @@ from loguru import logger
 # * import main menu reply keyboard
 from keyboard.default.reply_menu import menu_reply
 # * import requests to database
-from database import crud
+from app.database import crud
 
 
 router = Router()

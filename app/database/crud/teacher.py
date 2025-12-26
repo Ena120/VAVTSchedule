@@ -3,9 +3,9 @@ from sqlalchemy import select
 from loguru import logger
 
 # * import session for connection with database
-from database.engine import session
+from app.database.engine import session
 # * import tables
-from database.models import Teacher
+from app.database.models import Teacher
 
 
 @logger.catch()

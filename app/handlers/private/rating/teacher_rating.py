@@ -9,7 +9,7 @@ from keyboard.inline.rating.inline_link_back_rating import leavefeedback_or_back
 # * import callback
 from handlers.callback.callback_data import RatingMenuCallback
 # * import requests to database
-from database import crud
+from app.database import crud
 
 router = Router()
 

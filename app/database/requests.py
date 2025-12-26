@@ -1,37 +1,22 @@
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, distinct
 from app.database.models import User, Group, Lesson
 from app.database.engine import async_session
 
 # ==========================================
-# ⚙️ ФУНКЦИИ ДЛЯ ОБНОВЛЕНИЯ РАСПИСАНИЯ (АДМИН/СКРИПТ)
+# 🛠 АДМИНСКИЕ ФУНКЦИИ
 # ==========================================
 
 async def clear_schedule_table():
-    """
-    Полностью очищает таблицу уроков. 
-    Нужно вызывать перед загрузкой нового расписания, чтобы избежать дубликатов.
-    """
     async with async_session() as session:
-        print("🧹 [DB] Очистка старого расписания...")
         await session.execute(delete(Lesson))
         await session.commit()
 
-async def save_schedule_to_db(schedule_data: list):
-    """
-    Принимает список словарей с расписанием и сохраняет в БД.
-    Формат: [{'day': '...', 'time': '...', 'group': '...', 'subject_raw': '...'}, ...]
-    """
-    if not schedule_data:
-        return
+async def save_schedule_to_db(schedule_data: list, faculty: str, course: str):
+    if not schedule_data: return
 
     async with async_session() as session:
-        print(f"💾 [DB] Сохраняю порцию из {len(schedule_data)} занятий...")
-        
-        # Кэш для групп, чтобы не делать SELECT на каждую строчку Excel
-        # { "Б25Ф-...": 12 (id) }
-        existing_groups_cache = {} 
-
-        # Сначала подгрузим все существующие группы в кэш
+        # Кэшируем группы для скорости
+        existing_groups_cache = {}
         all_groups = await session.execute(select(Group))
         for g in all_groups.scalars():
             existing_groups_cache[g.title] = g.group_id
@@ -41,68 +26,79 @@ async def save_schedule_to_db(schedule_data: list):
         for item in schedule_data:
             group_title = item['group']
             
-            # 1. Определяем ID группы
+            # Создаем группу, если её нет
             if group_title not in existing_groups_cache:
-                # Если группы нет в базе и в кэше — создаем
-                new_group = Group(title=group_title, course="Unknown") 
+                new_group = Group(title=group_title, faculty=faculty, course=course)
                 session.add(new_group)
-                await session.flush() # Чтобы получить ID до коммита
-                
+                await session.flush()
                 existing_groups_cache[group_title] = new_group.group_id
-                print(f"➕ [DB] Создана новая группа: {group_title}")
             
-            group_id = existing_groups_cache[group_title]
-
-            # 2. Подготавливаем урок
+            # Добавляем урок
             new_lesson = Lesson(
-                group_id=group_id,
+                group_id=existing_groups_cache[group_title],
                 day=item['day'],
                 time=item['time'],
                 subject_raw=item['subject_raw']
             )
             new_lessons.append(new_lesson)
         
-        # Массовое добавление уроков (быстрее, чем по одному)
         session.add_all(new_lessons)
         await session.commit()
-        print("✅ [DB] Данные сохранены.")
 
 
 # ==========================================
-# 👤 ФУНКЦИИ ДЛЯ РАБОТЫ С ПОЛЬЗОВАТЕЛЯМИ
+# 📱 ФУНКЦИИ ДЛЯ МЕНЮ
 # ==========================================
 
-async def get_all_groups():
-    """
-    Возвращает список всех групп (объекты), отсортированный по алфавиту.
-    Используется для генерации кнопок.
-    """
+async def get_faculties():
     async with async_session() as session:
-        result = await session.execute(select(Group).order_by(Group.title))
+        # distinct - только уникальные названия
+        result = await session.execute(select(distinct(Group.faculty)).order_by(Group.faculty))
+        return [r for r in result.scalars().all() if r]
+
+async def get_courses_by_faculty(faculty: str):
+    async with async_session() as session:
+        result = await session.execute(
+            select(distinct(Group.course))
+            .where(Group.faculty == faculty)
+            .order_by(Group.course)
+        )
         return result.scalars().all()
 
-async def set_user_group(tg_id: int, group_id: int):
-    """
-    Записывает или обновляет выбранную группу для пользователя.
-    """
+async def get_groups_by_filter(faculty: str, course: str):
     async with async_session() as session:
-        # Ищем пользователя по Telegram ID
+        result = await session.execute(
+            select(Group)
+            .where(Group.faculty == faculty, Group.course == course)
+            .order_by(Group.title)
+        )
+        return result.scalars().all()
+
+
+# ==========================================
+# 👤 ПОЛЬЗОВАТЕЛЬСКИЕ ФУНКЦИИ
+# ==========================================
+
+async def set_user_group(tg_id: int, group_id: int):
+    async with async_session() as session:
         user = await session.scalar(select(User).where(User.user_id == tg_id))
-        
         if not user:
-            # Если новый пользователь
             user = User(user_id=tg_id, group_id=group_id)
             session.add(user)
         else:
-            # Если старый — обновляем группу
             user.group_id = group_id
-        
         await session.commit()
 
 async def get_user_group_id(tg_id: int):
-    """
-    Получает ID группы, которую выбрал пользователь.
-    """
     async with async_session() as session:
         user = await session.scalar(select(User).where(User.user_id == tg_id))
         return user.group_id if user else None
+
+async def get_lessons_by_date(group_id: int, date_part: str):
+    async with async_session() as session:
+        result = await session.execute(
+            select(Lesson)
+            .where(Lesson.group_id == group_id)
+            .where(Lesson.day.ilike(f"%{date_part}%"))
+        )
+        return result.scalars().all()

@@ -5,7 +5,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
 from app.utils.filters import ChatTypeFilter, IsAdmin
-from database import crud
+from app.database import crud
 
 
 router = Router()

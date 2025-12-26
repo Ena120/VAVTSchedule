@@ -3,7 +3,7 @@ from loguru import logger
 from json import JSONDecodeError
 import requests
 # * import db SQL commands
-from database.crud import user
+from app.database.crud import user
 
 
 @logger.catch()

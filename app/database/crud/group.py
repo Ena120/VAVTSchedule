@@ -2,9 +2,9 @@ from sqlalchemy import select, update
 from loguru import logger
 
 # * import session for connection with database
-from database.engine import session
+from app.database.engine import session
 # * import tables
-from database.models import User, Group
+from app.database.models import User, Group
 
 
 @logger.catch()

@@ -14,7 +14,7 @@ from handlers.callback.callback_data import (
 # * import questions for survey
 from .question import question
 # * import requests to database
-from database import crud
+from app.database import crud
 
 router = Router()
 
