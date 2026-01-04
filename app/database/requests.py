@@ -102,3 +102,58 @@ async def get_lessons_by_date(group_id: int, date_part: str):
             .where(Lesson.day.ilike(f"%{date_part}%"))
         )
         return result.scalars().all()
+
+async def get_user_info(tg_id: int):
+    """
+    Возвращает полную информацию о пользователе:
+    (Название группы, Факультет, Курс)
+    """
+    async with async_session() as session:
+        # Делаем JOIN таблиц User и Group
+        query = select(Group).join(User, User.group_id == Group.group_id).where(User.user_id == tg_id)
+        result = await session.execute(query)
+        group = result.scalar()
+        
+        if group:
+            return {
+                "group": group.title,
+                "faculty": group.faculty,
+                "course": group.course
+            }
+        return None
+
+async def get_lessons_for_dates(group_id: int, dates: list):
+    """
+    Ищет уроки, если день совпадает с одной из дат в списке.
+    dates = ['26.12', '27.12', '28.12'...]
+    """
+    async with async_session() as session:
+        # Используем OR для поиска по списку дат
+        conditions = [Lesson.day.ilike(f"%{d}%") for d in dates]
+        
+        # Строим запрос
+        query = select(Lesson).where(Lesson.group_id == group_id)
+        
+        if conditions:
+            from sqlalchemy import or_
+            query = query.where(or_(*conditions))
+        
+        # Сортируем по ID (обычно это соответствует хронологии добавления)
+        # Или можно не сортировать, если они и так идут по порядку
+        result = await session.execute(query)
+        return result.scalars().all()
+
+async def get_users_by_filter(faculty: str, course: str):
+    """
+    Возвращает список user_id студентов, которые подписаны 
+    на группы указанного факультета и курса.
+    """
+    async with async_session() as session:
+        # Объединяем таблицы Users и Groups
+        query = (
+            select(User.user_id)
+            .join(Group, User.group_id == Group.group_id)
+            .where(Group.faculty == faculty, Group.course == course)
+        )
+        result = await session.execute(query)
+        return result.scalars().all()

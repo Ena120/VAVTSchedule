@@ -2,32 +2,39 @@ import asyncio
 from loguru import logger
 
 from loader import dp, bot
-# Исправленный импорт (с указанием файла)
-from app.services.default_commands import set_default_commands
+from services.default_commands import set_default_commands
 from handlers import get_handlers_router
-
-# Импортируем создание таблиц
 from app.database.engine import async_main
+from app.scheduler import setup_scheduler 
 
 async def main():
-    # --- 1. ЗАПУСК БАЗЫ ДАННЫХ ---
+    # 1. ЗАПУСК БАЗЫ ДАННЫХ
     logger.info("Initializing database...")
     await async_main()
 
-    # --- 2. ПОДКЛЮЧЕНИЕ РОУТЕРОВ ---
-    # Мы УБРАЛИ отсюда start_router, так как он уже есть внутри get_handlers_router()
-    
-    # Подключаем "главный" роутер, который содержит в себе все остальные (включая start)
+    # 2. ЗАПУСК ПЛАНИРОВЩИКА
+    setup_scheduler()
+
+    # 3. ПОДКЛЮЧЕНИЕ РОУТЕРОВ
     dp.include_router(get_handlers_router())
 
-    # --- 3. НАСТРОЙКИ БОТА ---
-    await set_default_commands(dp)
-    
-    await bot.delete_webhook(drop_pending_updates=True)
+    # 4. НАСТРОЙКИ БОТА (С ЗАЩИТОЙ ОТ СБОЕВ СЕТИ)
+    try:
+        await set_default_commands(dp)
+        logger.info("Default commands set successfully.")
+    except Exception as e:
+        logger.warning(f"⚠️ Не удалось установить команды меню (проблемы с сетью?): {e}")
+
+    try:
+        await bot.delete_webhook(drop_pending_updates=True)
+        logger.info("Webhooks deleted.")
+    except Exception as e:
+        logger.warning(f"⚠️ Не удалось удалить вебхук: {e}")
     
     logger.info("Bot started! Ready to accept messages.")
     
-    # --- 4. ЗАПУСК ---
+    # 5. ЗАПУСК ПОЛЛИНГА
+    # start_polling сам умеет переподключаться, если сеть падает
     await dp.start_polling(bot)
 
 
