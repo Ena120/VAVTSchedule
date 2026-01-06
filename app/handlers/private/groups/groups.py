@@ -3,7 +3,7 @@ from aiogram.types import CallbackQuery
 from loguru import logger
 
 # * import inline main menu keyboard
-from keyboard.inline.menu.inline_menu import main_menu
+from app.keyboard.inline.menu import back_to_menu_kb
 # * import inline group menu keyboard
 from keyboard.inline.groups.inline_groups import back_to_main_menu
 # * import some callback

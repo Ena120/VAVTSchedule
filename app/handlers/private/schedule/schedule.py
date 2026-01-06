@@ -5,7 +5,7 @@ from loguru import logger
 # * import requests to university's API
 from API.request_schedule import get_day_schedule, get_week_schedule
 # * import inline rating menu keyboard
-from keyboard.inline.menu.inline_menu import main_menu
+from app.keyboard.inline.menu import back_to_menu_kb
 # * import callback
 from handlers.callback.callback_data import (
     MenuCallback,

@@ -4,7 +4,7 @@ from aiogram.fsm.context import FSMContext
 from loguru import logger
 
 
-from keyboard.inline.menu.inline_menu import main_menu
+from app.keyboard.inline.menu import back_to_menu_kb
 
 
 router = Router()

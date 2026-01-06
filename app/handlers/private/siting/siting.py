@@ -8,7 +8,7 @@ from loguru import logger
 # * import callback
 from handlers.callback.callback_data import MenuCallback, SitingCallback
 # * import inline rating menu keyboard
-from keyboard.inline.menu.inline_menu import main_menu
+from app.keyboard.inline.menu import back_to_menu_kb
 # * import inline siting menu keyboard
 from keyboard.inline.siting.inline_siting import siting_menu
 # * import requests to database

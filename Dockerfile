@@ -1,16 +1,17 @@
-FROM python:3.11-slim-bullseye as production
+FROM python:3.11-slim
 
-WORKDIR /bot_mmu
+# ВАЖНО: Эта строка включает отображение логов в реальном времени
+ENV PYTHONUNBUFFERED=1
 
-RUN pip install virtualenv
+# Рабочая папка должна совпадать с той, что в docker-compose (/src)
+WORKDIR /src
 
-RUN virtualenv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-COPY requirements.txt .
-RUN pip install --upgrade pip
+# Копируем зависимости и устанавливаем их
+COPY requirements.txt /src/
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+# Копируем код бота
+COPY . /src/
 
-RUN chmod -R 777 ./
+# Команда запуска
+CMD ["python", "run.py"]
