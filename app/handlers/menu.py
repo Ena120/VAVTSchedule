@@ -1,16 +1,21 @@
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext # <--- Добавили импорт
 
 import app.database.requests as rq
 from app.keyboard.inline.menu import main_menu_inline, settings_kb
 
 menu_router = Router()
 
-# Вход в меню (по кнопке или команде)
-@menu_router.message(F.text == "📱 Меню")
+# --- ВХОД В МЕНЮ (По кнопке или команде) ---
+# Добавляем F.state == "*" чтобы кнопка работала в ЛЮБОМ состоянии
+@menu_router.message(F.text == "📋 Меню") 
 @menu_router.message(Command("menu"))
-async def show_main_menu(message: Message):
+async def show_main_menu(message: Message, state: FSMContext): # <--- Добавили state
+    # Сбрасываем любые состояния (поддержка, админка и т.д.)
+    await state.clear() 
+    
     user_info = await rq.get_user_info(message.from_user.id)
     
     if not user_info:
@@ -22,9 +27,10 @@ async def show_main_menu(message: Message):
         f"👥 Группа: <b>{user_info['group']}</b>\n"
         f"👇 Выберите действие:"
     )
+    
     await message.answer(text, reply_markup=main_menu_inline(user_info), parse_mode="HTML")
 
-# Возврат в меню (кнопка "Назад")
+# --- Остальной код без изменений ---
 @menu_router.callback_query(F.data == "nav_main_menu")
 async def back_to_main_menu(callback: CallbackQuery):
     user_info = await rq.get_user_info(callback.from_user.id)
@@ -33,10 +39,8 @@ async def back_to_main_menu(callback: CallbackQuery):
         f"👥 Группа: <b>{user_info['group']}</b>\n"
         f"👇 Выберите действие:"
     )
-    # Редактируем сообщение (магия App-style)
     await callback.message.edit_text(text, reply_markup=main_menu_inline(user_info), parse_mode="HTML")
 
-# Настройки
 @menu_router.callback_query(F.data == "settings_menu")
 async def open_settings(callback: CallbackQuery):
     await callback.message.edit_text(
@@ -45,7 +49,6 @@ async def open_settings(callback: CallbackQuery):
         parse_mode="HTML"
     )
 
-# Триггер смены группы
 @menu_router.callback_query(F.data == "reselect_group")
 async def trigger_reselect(callback: CallbackQuery):
     await callback.answer()

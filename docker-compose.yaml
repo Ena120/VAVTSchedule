@@ -19,7 +19,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres      # Должно совпадать с .env
+      POSTGRES_PASSWORD: postgres     # Должно совпадать с .env
       POSTGRES_DB: postgres
     volumes:
       - vavt_pgdata:/var/lib/postgresql/data # Уникальное хранилище данных
