@@ -10,7 +10,11 @@ db_url = os.getenv("PG_URL")
 if not db_url:
     print("⚠️ ОШИБКА: Не найдена переменная PG_URL в файле .env")
 
-engine = create_async_engine(db_url, echo=False)
+engine = create_async_engine(
+    db_url,
+    echo=False,
+    pool_pre_ping=True 
+)
 
 # Создаем фабрику сессий
 async_session = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
