@@ -15,27 +15,39 @@ async def save_schedule_to_db(schedule_data: list, faculty: str, course: str):
     if not schedule_data: return
 
     async with async_session() as session:
-        # Кэшируем группы для скорости
-        existing_groups_cache = {}
-        all_groups = await session.execute(select(Group))
-        for g in all_groups.scalars():
-            existing_groups_cache[g.title] = g.group_id
+        # 1. Собираем уникальные названия групп из файла
+        unique_groups_in_file = set(item['group'] for item in schedule_data)
+        
+        # 2. Кэшируем ID групп (и создаем новые, если их нет)
+        groups_cache = {} # { "Б22М...": 15 }
+        
+        # Получаем все группы из базы
+        all_groups_db = await session.execute(select(Group))
+        for g in all_groups_db.scalars():
+            groups_cache[g.title] = g.group_id
 
-        new_lessons = []
-
-        for item in schedule_data:
-            group_title = item['group']
-            
-            # Создаем группу, если её нет
-            if group_title not in existing_groups_cache:
+        # Проверяем, все ли группы из файла есть в базе
+        for group_title in unique_groups_in_file:
+            if group_title not in groups_cache:
                 new_group = Group(title=group_title, faculty=faculty, course=course)
                 session.add(new_group)
-                await session.flush()
-                existing_groups_cache[group_title] = new_group.group_id
-            
-            # Добавляем урок
+                await session.flush() # Получаем ID сразу
+                groups_cache[group_title] = new_group.group_id
+
+        # 3. 🔥 ВАЖНО: Удаляем старое расписание ТОЛЬКО для этих групп
+        # Чтобы не стирать всю базу, а обновить только то, что пришло в файле
+        target_group_ids = [groups_cache[g] for g in unique_groups_in_file]
+        
+        if target_group_ids:
+            await session.execute(
+                delete(Lesson).where(Lesson.group_id.in_(target_group_ids))
+            )
+
+        # 4. Записываем новые уроки (теперь дублей не будет)
+        new_lessons = []
+        for item in schedule_data:
             new_lesson = Lesson(
-                group_id=existing_groups_cache[group_title],
+                group_id=groups_cache[item['group']],
                 day=item['day'],
                 time=item['time'],
                 subject_raw=item['subject_raw']
