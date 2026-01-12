@@ -32,12 +32,23 @@ def settings_kb() -> InlineKeyboardMarkup:
     return kb.as_markup()
 
 def schedule_nav_kb(current_offset: int) -> InlineKeyboardMarkup:
-    """Навигация под расписанием (Вчера / Меню / Завтра)"""
+  
     kb = InlineKeyboardBuilder()
-    kb.button(text="⬅️", callback_data=f"sch_day_{current_offset - 1}")
-    kb.button(text="🔙 Меню", callback_data="nav_main_menu")
-    kb.button(text="➡️", callback_data=f"sch_day_{current_offset + 1}")
-    kb.adjust(3)
+    
+    # Добавляем кнопки по порядку
+    # 1. Кнопка Вчера (Слева)
+    kb.button(text="⬅️ Вчера", callback_data=f"sch_day_{current_offset - 1}")
+    
+    # 2. Кнопка Завтра (Справа)
+    kb.button(text="Завтра ➡️", callback_data=f"sch_day_{current_offset + 1}")
+    
+    # 3. Кнопка Меню (Снизу)
+    kb.button(text="🔙 Назад в меню", callback_data="nav_main_menu")
+    
+    # Настраиваем сетку: 
+    # 2 кнопки в первом ряду, 1 кнопка во втором
+    kb.adjust(2, 1)
+    
     return kb.as_markup()
 
 def back_to_menu_kb() -> InlineKeyboardMarkup:
