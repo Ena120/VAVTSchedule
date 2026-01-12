@@ -23,13 +23,52 @@ async def sch_navigation(callback: CallbackQuery):
     await show_day_schedule(callback, day_offset=offset)
 
 # --- Отображение дня ---
-async def show_day_schedule(callback: CallbackQuery, day_offset: int):
+"""async def show_day_schedule(callback: CallbackQuery, day_offset: int):
     user_info = await rq.get_user_info(callback.from_user.id)
     group_id = await rq.get_user_group_id(callback.from_user.id)
     
     target_date = datetime.now() + timedelta(days=day_offset)
     date_str = target_date.strftime("%d.%m")
     
+    day_label = "Сегодня" if day_offset == 0 else "Завтра" if day_offset == 1 else "Вчера" if day_offset == -1 else target_date.strftime("%A")
+
+    lessons = await rq.get_lessons_by_date(group_id, date_str)
+    
+    header = f"🎓 <b>{user_info['group']}</b> | {day_label} ({date_str})\n➖➖➖➖➖➖➖➖➖➖\n\n"
+    
+    if not lessons:
+        text = header + "🎉 <b>Пар нет!</b>\nМожно отдыхать."
+    else:
+        text = header
+        for lesson in lessons:
+            text += f"🕒 <b>{lesson.time}</b>\n📚 {lesson.subject_raw}\n\n"
+
+    try:
+        await callback.message.edit_text(
+            text, 
+            parse_mode="HTML", 
+            reply_markup=schedule_nav_kb(day_offset)
+        )
+    except Exception:
+        await callback.answer()"""
+
+# --- Отображение дня (РЕЖИМ ТЕСТИРОВАНИЯ: 26.12.2025) ---
+async def show_day_schedule(callback: CallbackQuery, day_offset: int):
+    user_info = await rq.get_user_info(callback.from_user.id)
+    group_id = await rq.get_user_group_id(callback.from_user.id)
+    
+    # === 🕒 МАШИНА ВРЕМЕНИ ===
+    # Жестко ставим дату 26 декабря 2025 года (пятница)
+    fake_today = datetime(2025, 12, 26)
+    target_date = fake_today + timedelta(days=day_offset)
+    
+    # Чтобы вернуть реальное время, удали строки выше и раскомментируй эту:
+    # target_date = datetime.now() + timedelta(days=day_offset)
+    # =========================
+    
+    date_str = target_date.strftime("%d.%m")
+    
+    # Логика названия дня (относительно нашей фейковой даты)
     day_label = "Сегодня" if day_offset == 0 else "Завтра" if day_offset == 1 else "Вчера" if day_offset == -1 else target_date.strftime("%A")
 
     lessons = await rq.get_lessons_by_date(group_id, date_str)
