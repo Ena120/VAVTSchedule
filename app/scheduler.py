@@ -1,32 +1,43 @@
 import pytz
+import os
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from run_update import process_all_files
+from app.loader import bot # Берем бота, чтобы отправлять сообщения
+from dotenv import load_dotenv
 
-# Указываем часовой пояс Москвы
+load_dotenv()
+ADMIN_ID = int(os.getenv("ADMIN_ID", 0))
 msk_tz = pytz.timezone('Europe/Moscow')
 
 async def update_schedule_job():
-    """Обёртка для запуска обновления"""
-    print("⏰ [Scheduler] Запуск планового обновления расписания...")
+    """Обёртка для запуска обновления с отчетом Админу"""
+    print("⏰ [Scheduler] Запуск планового обновления...")
     try:
+        # Запускаем обновление
         await process_all_files()
-        print("⏰ [Scheduler] Обновление завершено успешно.")
+        print("⏰ [Scheduler] Успех.")
+        
+        # (Опционально) Можно писать админу, что всё ок
+        if ADMIN_ID:
+             await bot.send_message(ADMIN_ID, "✅ Расписание успешно обновлено.")
+            
     except Exception as e:
-        print(f"⏰ [Scheduler] Ошибка при обновлении: {e}")
+        error_msg = f"🆘 <b>CRITICAL ERROR!</b>\n\nВоркер обновления упал:\n<code>{str(e)}</code>"
+        print(error_msg)
+        
+        # Шлем сигнал бедствия Админу
+        if ADMIN_ID:
+            try:
+                await bot.send_message(ADMIN_ID, error_msg, parse_mode="HTML")
+            except:
+                print("Не удалось отправить сообщение об ошибке админу.")
 
 def setup_scheduler():
-    """Настройка и запуск планировщика"""
     scheduler = AsyncIOScheduler(timezone=msk_tz)
     
-    # Добавляем задачи (Cron-style)
-    # hour=9, minute=0 means 09:00:00
-    
-    # Утро (09:00 МСК)
+    # 09:00 и 17:00
     scheduler.add_job(update_schedule_job, trigger='cron', hour=9, minute=0)
-    
-    # Вечер (17:00 МСК)
     scheduler.add_job(update_schedule_job, trigger='cron', hour=17, minute=0)
     
-    # Запускаем планировщик
     scheduler.start()
     print("✅ Планировщик запущен (09:00 и 17:00 MSK)")
