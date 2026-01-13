@@ -2,9 +2,7 @@ import openpyxl
 import re
 
 def get_value_from_merged(sheet, row, col):
-    """
-    Берет значение, учитывая объединение ячеек в Excel.
-    """
+    """Достает значение, даже если ячейка объединена"""
     cell = sheet.cell(row, col)
     for merged in sheet.merged_cells.ranges:
         if cell.coordinate in merged:
@@ -12,16 +10,12 @@ def get_value_from_merged(sheet, row, col):
     return cell.value
 
 def parse_schedule(file_path):
-    """
-    Парсер V5 (Adobe Edition).
-    Полностью доверяет структуре Excel от Adobe.
-    """
     wb = openpyxl.load_workbook(file_path, data_only=True)
     sheet = wb.active
     
     schedule_data = []
     
-    # --- 1. Поиск шапки ---
+    # 1. Ищем шапку
     header_row_index = -1
     group_columns = {}
     group_pattern = re.compile(r'^[А-ЯЁ]\d{2}.*') 
@@ -44,23 +38,23 @@ def parse_schedule(file_path):
         print(f"⚠️ Шапка не найдена: {file_path}")
         return []
 
-    # --- 2. Чтение данных ---
+    # 2. Читаем данные
     current_day = None
     
     for row_num in range(header_row_index + 1, sheet.max_row + 1):
-        # А. День недели (с учетом Merged Cells)
+        # --- День недели ---
         day_val = get_value_from_merged(sheet, row_num, 1)
         if day_val and str(day_val).strip():
             current_day = str(day_val).strip().replace('\n', ' ')
         
         if not current_day: continue
 
-        # Б. Время (с учетом Merged Cells)
+        # --- Время (Колонка 2) ---
         col2_val = get_value_from_merged(sheet, row_num, 2)
         col2_str = str(col2_val).strip().replace('\n', ' ') if col2_val else ""
         
         is_time = False
-        # Простая проверка на время (09.00)
+        # Если есть цифры и коротко - это время
         if len(col2_str) < 15 and any(c.isdigit() for c in col2_str):
             is_time = True
         
@@ -71,20 +65,38 @@ def parse_schedule(file_path):
             final_time = "🕒 См. описание" 
             subject_prefix = f"[{col2_str}] " if col2_str and col2_str != "None" else ""
 
-        # В. Проход по группам
+        # --- 🔥 ЛОГИКА ДЛЯ ТВОИХ ФАЙЛОВ (Разбор строки) ---
+        # Проверяем, есть ли в этой строке "Общая пара" (текст только в одной колонке)
+        row_texts = []
+        for c_idx in group_columns:
+            # Тут используем get_value, но для pdfplumber файлов это просто ячейка
+            val = get_value_from_merged(sheet, row_num, c_idx)
+            if val and str(val).strip() and str(val) != "None":
+                row_texts.append(str(val).strip().replace('\n', ' '))
+        
+        common_lesson_text = None
+        # Если текст найден только в 1 столбце из всех групп - считаем его общим для всех
+        if len(row_texts) == 1 and len(row_texts[0]) > 5:
+            common_lesson_text = row_texts[0]
+
+        # --- Проход по группам ---
         for col_idx, group_name in group_columns.items():
-            # Берем значение СТРОГО из ячейки (или её объединения)
             raw_val = get_value_from_merged(sheet, row_num, col_idx)
             
             subject_text = ""
+            
+            # 1. Если в ячейке есть текст - берем его
             if raw_val and str(raw_val).strip() and str(raw_val) != "None":
                 subject_text = str(raw_val).strip().replace('\n', ' ')
             
-            # Если пусто - значит ПУСТО. Не выдумываем.
+            # 2. Если ячейка пустая, но мы нашли Общую Пару - берем её
+            elif common_lesson_text:
+                subject_text = common_lesson_text
+            
             if not subject_text:
                 continue
 
-            # Финальная обработка времени для экзаменов
+            # Поиск времени внутри текста (для зачетов)
             current_final_time = final_time
             if not is_time:
                 time_match = re.match(r'(\d{1,2}[:.]\d{2})', subject_text)
