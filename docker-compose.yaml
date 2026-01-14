@@ -7,8 +7,9 @@ services:
     command: python run.py
     env_file: .env
     volumes:
-      - ./downloads:/src/downloads
-      - ./logs:/src/logs
+      - .:/src                     # <--- ГЛАВНОЕ ИЗМЕНЕНИЕ: Зеркало кода
+      - ./downloads:/src/downloads # Сохраняем файлы
+      - ./logs:/src/logs           # Сохраняем логи
     depends_on:
       - db
 
@@ -20,6 +21,7 @@ services:
     command: python worker.py
     env_file: .env
     volumes:
+      - .:/src                     # <--- И СЮДА ТОЖЕ
       - ./downloads:/src/downloads
       - ./logs:/src/logs
     depends_on:
@@ -32,7 +34,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: 12345
       POSTGRES_DB: postgres
     volumes:
       - vavt_pgdata:/var/lib/postgresql/data
