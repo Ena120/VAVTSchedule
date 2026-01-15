@@ -159,3 +159,19 @@ async def get_users_by_filter(faculty: str, course: str):
         )
         result = await session.execute(query)
         return result.scalars().all()
+
+async def get_users_by_group_titles(group_titles: list):
+    """
+    Возвращает список ID студентов, которые состоят в группах из переданного списка названий.
+    """
+    if not group_titles:
+        return []
+        
+    async with async_session() as session:
+        query = (
+            select(User.user_id)
+            .join(Group, User.group_id == Group.group_id)
+            .where(Group.title.in_(group_titles)) # Ищем совпадение по списку
+        )
+        result = await session.execute(query)
+        return result.scalars().all()
